@@ -43,7 +43,7 @@ inline std::wstring to_wide_string(const std::string& input)
 	return converter.from_bytes(input);
 }
 
-inline std::string to_byte_string(const std::wstring& input)
+inline std::string to_byte_string(const wchar_t* input)
 {
 	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
 	return converter.to_bytes(input);
@@ -214,10 +214,9 @@ std::vector<std::string> get_directory_contents (const char* path)
 	if (h == INVALID_HANDLE_VALUE) {
 		throw System_error("FindFirstFileA", patt, GetLastError());
 	}
-	std::string			filename(to_byte_string(ffd.cFileName));
 	do {
-		if (std::strcmp(filename.c_str(), ".") != 0 && std::strcmp(filename.c_str(), "..") != 0) {
-			filenames.push_back(filename);
+		if (std::wcscmp(ffd.cFileName, L".") != 0 && std::wcscmp(ffd.cFileName, L"..") != 0) {
+			filenames.push_back(to_byte_string(ffd.cFileName));
 		}
 	} while (FindNextFileW(h, &ffd) != 0);
 
