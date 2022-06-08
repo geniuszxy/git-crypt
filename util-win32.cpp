@@ -34,6 +34,20 @@
 #include <windows.h>
 #include <vector>
 #include <cstring>
+#include <locale>
+#include <codecvt>
+
+inline std::wstring to_wide_string(const std::string& input)
+{
+	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+	return converter.from_bytes(input);
+}
+
+inline std::string to_byte_string(const std::wstring& input)
+{
+	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+	return converter.to_bytes(input);
+}
 
 std::string System_error::message () const
 {
@@ -132,7 +146,8 @@ int exit_status (int status)
 
 void	touch_file (const std::string& filename)
 {
-	HANDLE	fh = CreateFileA(filename.c_str(), FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+	std::wstring    wfilename(to_wide_string(filename));
+	HANDLE	fh = CreateFileW(wfilename.c_str(), FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
 	if (fh == INVALID_HANDLE_VALUE) {
 		DWORD	error = GetLastError();
 		if (error == ERROR_FILE_NOT_FOUND) {
@@ -156,7 +171,8 @@ void	touch_file (const std::string& filename)
 
 void	remove_file (const std::string& filename)
 {
-	if (!DeleteFileA(filename.c_str())) {
+	std::wstring    wfilename(to_wide_string(filename));
+	if (!DeleteFileW(wfilename.c_str())) {
 		DWORD	error = GetLastError();
 		if (error == ERROR_FILE_NOT_FOUND) {
 			return;
@@ -192,16 +208,18 @@ std::vector<std::string> get_directory_contents (const char* path)
 	}
 	patt.push_back('*');
 
-	WIN32_FIND_DATAA		ffd;
-	HANDLE				h = FindFirstFileA(patt.c_str(), &ffd);
+	WIN32_FIND_DATAW		ffd;
+	std::wstring		wpatt(to_wide_string(patt));
+	HANDLE				h = FindFirstFileW(wpatt.c_str(), &ffd);
 	if (h == INVALID_HANDLE_VALUE) {
 		throw System_error("FindFirstFileA", patt, GetLastError());
 	}
+	std::string			filename(to_byte_string(ffd.cFileName));
 	do {
-		if (std::strcmp(ffd.cFileName, ".") != 0 && std::strcmp(ffd.cFileName, "..") != 0) {
-			filenames.push_back(ffd.cFileName);
+		if (std::strcmp(filename.c_str(), ".") != 0 && std::strcmp(filename.c_str(), "..") != 0) {
+			filenames.push_back(filename);
 		}
-	} while (FindNextFileA(h, &ffd) != 0);
+	} while (FindNextFileW(h, &ffd) != 0);
 
 	DWORD				err = GetLastError();
 	if (err != ERROR_NO_MORE_FILES) {
@@ -209,4 +227,40 @@ std::vector<std::string> get_directory_contents (const char* path)
 	}
 	FindClose(h);
 	return filenames;
+}
+
+int cmain (int, const char**);
+int wmain (int argc, const wchar_t** wargv)
+{
+	int i, len, maxlen, exit_status;
+	char *buffer, *arg;
+	const char **argv;
+
+	/* determine size of argv and environ conversion buffer */
+	maxlen = wcslen(wargv[0]);
+	for (i = 1; i < argc; i++)
+	{
+		len = wcslen(wargv[i]);
+		maxlen = len > maxlen ? len : maxlen;
+	}
+		
+	/* allocate buffer (wchar_t encodes to max 3 UTF-8 bytes) */
+	maxlen = 3 * maxlen + 1;
+	buffer = (char*)malloc(maxlen);
+	argv = (const char**)malloc(sizeof(char*) * (argc + 1));
+	for (i = 0; i < argc; i++)
+	{
+		len = WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, buffer, maxlen, NULL, NULL);
+		arg = (char*)malloc(len);
+		memcpy(arg, buffer, len);
+		argv[i] = arg;
+	}
+	argv[i] = NULL;
+	free(buffer);
+	
+	exit_status = cmain(argc, argv);
+	
+	free(argv);
+	
+	return exit_status;
 }

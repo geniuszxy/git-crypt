@@ -133,7 +133,7 @@ static int version (int argc, const char** argv)
 }
 
 
-int main (int argc, const char** argv)
+int cmain (int argc, const char** argv)
 try {
 	argv0 = argv[0];
 
@@ -261,6 +261,11 @@ try {
 } catch (const std::ios_base::failure& e) {
 	std::cerr << "git-crypt: I/O error: " << e.what() << std::endl;
 	return 1;
+}
+
+int main (int argc, const char** argv)
+{
+	return cmain(argc, argv);
 }
 
 

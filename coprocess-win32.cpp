@@ -30,7 +30,8 @@
 
 #include "coprocess-win32.hpp"
 #include "util.hpp"
-
+#include <locale>
+#include <codecvt>
 
 static void escape_cmdline_argument (std::string& cmdline, const std::string& arg)
 {
@@ -80,12 +81,18 @@ static std::string format_cmdline (const std::vector<std::string>& command)
 	return cmdline;
 }
 
+inline std::wstring to_wide_string(const std::string& input)
+{
+	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+	return converter.from_bytes(input);
+}
+
 static HANDLE spawn_command (const std::vector<std::string>& command, HANDLE stdin_handle, HANDLE stdout_handle, HANDLE stderr_handle)
 {
 	PROCESS_INFORMATION	proc_info;
 	ZeroMemory(&proc_info, sizeof(proc_info));
 
-	STARTUPINFO		start_info;
+	STARTUPINFOW		start_info;
 	ZeroMemory(&start_info, sizeof(start_info));
 
 	start_info.cb = sizeof(STARTUPINFO);
@@ -95,9 +102,10 @@ static HANDLE spawn_command (const std::vector<std::string>& command, HANDLE std
 	start_info.dwFlags |= STARTF_USESTDHANDLES;
 
 	std::string		cmdline(format_cmdline(command));
+	std::wstring    wcmdline(to_wide_string(cmdline));
 
-	if (!CreateProcessA(nullptr,		// application name (nullptr to use command line)
-				const_cast<char*>(cmdline.c_str()),
+	if (!CreateProcessW(nullptr,		// application name (nullptr to use command line)
+				const_cast<wchar_t*>(wcmdline.c_str()),
 				nullptr,	// process security attributes
 				nullptr,	// primary thread security attributes
 				TRUE,		// handles are inherited

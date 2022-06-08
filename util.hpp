@@ -80,4 +80,3 @@ int		util_rename (const char*, const char*);
 std::vector<std::string> get_directory_contents (const char* path);
 
 #endif
-
